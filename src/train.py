@@ -11,37 +11,37 @@ from models import cnn_model
 
 flags = tf.app.flags
 
-flags.DEFINE_string("train_file", "data/train.cln", 
+flags.DEFINE_string("train_file", "data/train.cln",
                              "original training file")
-flags.DEFINE_string("test_file", "data/test.cln", 
+flags.DEFINE_string("test_file", "data/test.cln",
                              "original test file")
 
-flags.DEFINE_string("vocab_file", "data/vocab.txt", 
+flags.DEFINE_string("vocab_file", "data/vocab.txt",
                               "vocab of train and test data")
 
-flags.DEFINE_string("google_embed300_file", 
-                             "data/embed300.google.npy", 
+flags.DEFINE_string("google_embed300_file",
+                             "data/dep300.npy",
                              "google news word embeddding")
-flags.DEFINE_string("google_words_file", 
-                             "data/google_words.lst", 
+flags.DEFINE_string("google_words_file",
+                             "data/depwords.lst",
                              "google words list")
-flags.DEFINE_string("trimmed_embed300_file", 
-                             "data/embed300.trim.npy", 
+flags.DEFINE_string("trimmed_embed300_file",
+                             "data/embed300.trim.npy",
                              "trimmed google embedding")
 
-flags.DEFINE_string("senna_embed50_file", 
-                             "data/embed50.senna.npy", 
+flags.DEFINE_string("senna_embed50_file",
+                             "data/embed50.senna.npy",
                              "senna words embeddding")
-flags.DEFINE_string("senna_words_file", 
-                             "data/senna_words.lst", 
+flags.DEFINE_string("senna_words_file",
+                             "data/senna_words.lst",
                              "senna words list")
-flags.DEFINE_string("trimmed_embed50_file", 
-                             "data/embed50.trim.npy", 
+flags.DEFINE_string("trimmed_embed50_file",
+                             "data/embed50.trim.npy",
                              "trimmed senna embedding")
 
-flags.DEFINE_string("train_record", "data/train.tfrecord", 
+flags.DEFINE_string("train_record", "data/train.tfrecord",
                              "training file of TFRecord format")
-flags.DEFINE_string("test_record", "data/test.tfrecord", 
+flags.DEFINE_string("test_record", "data/test.tfrecord",
                              "Test file of TFRecord format")
 
 
@@ -71,7 +71,7 @@ def trace_runtime(sess, m_train):
   '''
   trace runtime bottleneck using timeline api
 
-  navigate to the URL 'chrome://tracing' in a Chrome web browser, 
+  navigate to the URL 'chrome://tracing' in a Chrome web browser,
   click the 'Load' button and locate the timeline file.
   '''
   run_metadata=tf.RunMetadata()
@@ -80,10 +80,10 @@ def trace_runtime(sess, m_train):
   trace_file = open('timeline.ctf.json', 'w')
 
   fetches = [m_train.train_op, m_train.loss, m_train.accuracy]
-  _, loss, acc = sess.run(fetches, 
-                            options=options, 
+  _, loss, acc = sess.run(fetches,
+                            options=options,
                             run_metadata=run_metadata)
-                            
+
   trace = timeline.Timeline(step_stats=run_metadata.step_stats)
   trace_file.write(trace.generate_chrome_trace_format())
   trace_file.close()
@@ -112,7 +112,7 @@ def train(sess, m_train, m_valid):
           best = v_acc
           best_step = n
           m_train.save(sess, best_step)
-        print("Epoch %d, loss %.2f, acc %.2f %.4f, time %.2f" % 
+        print("Epoch %d, loss %.2f, acc %.2f %.4f, time %.2f" %
                                   (epoch, loss, acc, v_acc, duration))
         sys.stdout.flush()
       n += 1
@@ -130,27 +130,27 @@ def test(sess, m_valid):
   fetches = [m_valid.accuracy, m_valid.prediction]
   accuracy, predictions = sess.run(fetches)
   print('accuracy: %.4f' % accuracy)
-  
+
   base_reader.write_results(predictions, FLAGS.relations_file, FLAGS.results_file)
 
 
 def main(_):
   with tf.Graph().as_default():
     train_data, test_data, word_embed = base_reader.inputs()
-    
-    
-    m_train, m_valid = cnn_model.build_train_valid_model(word_embed, 
+
+
+    m_train, m_valid = cnn_model.build_train_valid_model(word_embed,
                                                       train_data, test_data)
-    
+
     m_train.set_saver('cnn-%d-%d' % (FLAGS.num_epochs, FLAGS.word_dim))
-    
+
     init_op = tf.group(tf.global_variables_initializer(),
                         tf.local_variables_initializer())# for file queue
 
     config = tf.ConfigProto()
-    # config.gpu_options.per_process_gpu_memory_fraction = 0.9 # 占用GPU90%的显存 
+    # config.gpu_options.per_process_gpu_memory_fraction = 0.9 # 占用GPU90%的显存
     config.gpu_options.allow_growth = True
-    
+
     # sv finalize the graph
     with tf.Session(config=config) as sess:
       sess.run(init_op)
@@ -163,8 +163,8 @@ def main(_):
       else:
         train(sess, m_train, m_valid)
 
-      
-  
-          
+
+
+
 if __name__ == '__main__':
   tf.app.run()
