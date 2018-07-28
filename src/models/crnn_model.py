@@ -2,7 +2,7 @@ import tensorflow as tf
 from models.base_model import BaseModel
 
 FLAGS = tf.app.flags.FLAGS
-def crnn_forward(sent_pos, num_filters1, num_filters2, filter1_size, filter2_size):
+def crnn_forward(sent_pos, num_filters1, num_filters2, filter1_size, filter2_size, lexical):
     with tf.variable_scope('lstm'):
         lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(num_units=num_filters1, state_is_tuple=True)
         lstm_bw_cell = tf.contrib.rnn.BasicLSTMCell(num_units=num_filters1, state_is_tuple=True)
@@ -25,7 +25,11 @@ def crnn_forward(sent_pos, num_filters1, num_filters2, filter1_size, filter2_siz
     h2_pool=tf.nn.max_pool(h1_cnn,ksize=[1,seq_len-(filter1_size-1)-(filter2_size-1),1,1],strides=[1, 1, 1, 1],padding="VALID")
     h2_cnn = tf.squeeze(h2_pool, axis=[1,2])
     h_flat = tf.reshape(h2_pool,[-1,num_filters2])
-    return h_flat
+    feature = h_flat
+
+    if lexical is not None:
+        feature = tf.concat([lexical, feature], axis = 1)
+    return feature
 
 
 def linear_layer(name, x, in_size, out_size, is_regularize=False):
@@ -58,12 +62,12 @@ class CRNNModel(BaseModel):
         sentence = tf.nn.embedding_lookup(word_embed, sentence)
         pos1 = tf.nn.embedding_lookup(pos1_embed, pos1)
         pos2 = tf.nn.embedding_lookup(pos2_embed, pos2)
-
-        sent_pos = tf.concat([sentence, pos1, pos2], axis = 2)
+        sent_pos = sentence
+        #sent_pos = tf.concat([sentence, pos1, pos2], axis = 2)
         if is_train:
             sent_pos = tf.nn.dropout(sent_pos, keep_prob)
 
-        feature = crnn_forward('crnn', sent_pos, num_filters1, num_filters2)
+        feature = crnn_forward('crnn', sent_pos, num_filters1, num_filters2, lexical)
         feature_size = feature.shape.as_list()[1]
         self.feature = feature
         if is_train:
@@ -81,8 +85,10 @@ class CRNNModel(BaseModel):
         self.prediction = prediction
         self.accuracy = accuracy
         self.loss = loss_ce + 0.01 * loss_l2
+
         if not is_train:
             return
+
         global_step = tf.Variable(0, trainable=False, name='step', dtype = tf.int32)
         optimizer = tf.train.AdamOptimizer(lrn_rate)
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
@@ -105,6 +111,6 @@ def build_train_valid_model(word_embed, train_data, test_data):
                     FLAGS.pos_num, FLAGS.pos_dim, FLAGS.num_relations,
                     1.0, FLAGS.num_filters1, FLAGS.num_filters2,
                     FLAGS.filter1_size, FLAGS.filter2_size,
-                    FLAGS.lrn_rate, is_train=True)
+                    FLAGS.lrn_rate, is_train=False)
     return m_train, m_valid
 
