@@ -6,7 +6,7 @@ def crnn_forward(sent_pos, num_filters1, num_filters2, filter1_size, filter2_siz
     with tf.variable_scope('lstm'):
         lstm_fw_cell = tf.contrib.rnn.BasicLSTMCell(num_units=num_filters1, state_is_tuple=True)
         lstm_bw_cell = tf.contrib.rnn.BasicLSTMCell(num_units=num_filters1, state_is_tuple=True)
-        inputs = tf.unstack(sent_pos, axis = 1)
+        inputs = tf.unstack(sent_pos, num = FLAGS.max_len, axis = 1)
         outputs, state_fw, state_bw = tf.contrib.rnn.static_bidirectional_rnn(cell_fw=lstm_fw_cell,
                         cell_bw=lstm_bw_cell,
                         inputs = inputs,
@@ -22,7 +22,7 @@ def crnn_forward(sent_pos, num_filters1, num_filters2, filter1_size, filter2_siz
         conv = tf.nn.conv2d(h1_pool, W_cnn, strides = [1,1,1,1], padding = 'VALID', name='conv')
     h1_cnn = tf.nn.relu(tf.nn.bias_add(conv, b_cnn))
     ##Maxpooling
-    h2_pool=tf.nn.max_pool(h1_cnn,ksize=[1,seq_len-(filter1_size-1)-(filter2_size-1),1,1],strides=[1, 1, 1, 1],padding="VALID")
+    h2_pool=tf.nn.max_pool(h1_cnn,ksize=[1,FLAGS.max_len -(filter1_size-1)-(filter2_size-1),1,1],strides=[1, 1, 1, 1],padding="VALID")
     h2_cnn = tf.squeeze(h2_pool, axis=[1,2])
     h_flat = tf.reshape(h2_pool,[-1,num_filters2])
     feature = h_flat
@@ -58,20 +58,22 @@ class CRNNModel(BaseModel):
         pos2_embed = tf.get_variable('pos2_embed', shape = [pos_num, pos_dim])
 
         self.labels = tf.one_hot(rid, num_relations)
-                #embedding lookup
+        lexical = tf.nn.embedding_lookup(word_embed, lexical) # batch_size, 6, word_dim
+        lexical = tf.reshape(lexical, [-1, 6*word_dim])
+        #embedding lookup
         sentence = tf.nn.embedding_lookup(word_embed, sentence)
         pos1 = tf.nn.embedding_lookup(pos1_embed, pos1)
         pos2 = tf.nn.embedding_lookup(pos2_embed, pos2)
         sent_pos = sentence
         #sent_pos = tf.concat([sentence, pos1, pos2], axis = 2)
-        if is_train:
-            sent_pos = tf.nn.dropout(sent_pos, keep_prob)
+        #if is_train:
+        #    sent_pos = tf.nn.dropout(sent_pos, keep_prob)
 
-        feature = crnn_forward('crnn', sent_pos, num_filters1, num_filters2, lexical)
+        feature = crnn_forward(sent_pos, num_filters1, num_filters2, filter1_size, filter2_size, lexical)
         feature_size = feature.shape.as_list()[1]
         self.feature = feature
         if is_train:
-            feature = tf.nn.dropout(feature, self.dropout_keep_prob)
+            feature = tf.nn.dropout(feature, keep_prob)
         logits, loss_l2 = linear_layer('linear_cnn', feature,
                                         feature_size, num_relations,
                                         is_regularize = True)
@@ -107,7 +109,7 @@ def build_train_valid_model(word_embed, train_data, test_data):
 
     with tf.name_scope("Valid"):
         with tf.variable_scope('CRNNModel', reuse=True):
-            m_train = CRNNModel(word_embed, test_data, FLAGS.word_dim,
+            m_valid = CRNNModel(word_embed, test_data, FLAGS.word_dim,
                     FLAGS.pos_num, FLAGS.pos_dim, FLAGS.num_relations,
                     1.0, FLAGS.num_filters1, FLAGS.num_filters2,
                     FLAGS.filter1_size, FLAGS.filter2_size,
