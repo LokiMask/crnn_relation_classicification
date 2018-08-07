@@ -51,10 +51,6 @@ def cnn_forward(name, sent_pos, lexical, num_filters1, num_filters2):
 
 
 class CRNNModel(BaseModel):
-  '''
-  Relation Classification via Convolutional Deep Neural Network
-  http://www.aclweb.org/anthology/C14-1220
-  '''
 
   def __init__(self, word_embed, data, word_dim,
               pos_num, pos_dim, num_relations,
