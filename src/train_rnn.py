@@ -4,7 +4,7 @@ import sys
 import tensorflow as tf
 import numpy as np
 from reader import base as base_reader
-from models import crnn_model_1 as crnn_model
+from models import rnn_model
 
 # tf.set_random_seed(0)
 # np.random.seed(0)
@@ -53,16 +53,16 @@ flags.DEFINE_integer("max_len", 98, "max length of sentences")
 flags.DEFINE_integer("num_relations", 19, "number of relations")
 flags.DEFINE_integer("word_dim", 50, "word embedding size")
 flags.DEFINE_integer("num_epochs", 500, "number of epochs")
-flags.DEFINE_integer("batch_size", 100, "batch size")
+flags.DEFINE_integer("batch_size", 32, "batch size")
 
 flags.DEFINE_integer("pos_num", 123, "number of position feature")
-flags.DEFINE_integer("pos_dim", 5, "position embedding size")
-flags.DEFINE_integer("num_filters1", 75, "cnn number of output unit")
-flags.DEFINE_integer("num_filters2", 100, "rnn number of output unit")
+flags.DEFINE_integer("pos_dim", 50, "position embedding size")
+flags.DEFINE_integer("num_filters", 200, "rnn number of output unit")
 
 flags.DEFINE_float("lrn_rate", 1e-3, "learning rate")
 flags.DEFINE_float("keep_prob", 0.5, "dropout keep probability")
 
+flags.DEFINE_float("keep_prob_rnn", 0.25, "dropout keep probability of rnn")
 flags.DEFINE_boolean('test', False, 'set True to test')
 flags.DEFINE_boolean('trace', False, 'set True to test')
 
@@ -140,10 +140,10 @@ def main(_):
     train_data, test_data, word_embed = base_reader.inputs()
 
 
-    m_train, m_valid = crnn_model.build_train_valid_model(word_embed,
+    m_train, m_valid = rnn_model.build_train_valid_model(word_embed,
                                                       train_data, test_data)
 
-    m_train.set_saver('crnn-%d-%d' % (FLAGS.num_epochs, FLAGS.word_dim))
+    m_train.set_saver('rnn-%d-%d' % (FLAGS.num_epochs, FLAGS.word_dim))
 
     init_op = tf.group(tf.global_variables_initializer(),
                         tf.local_variables_initializer())# for file queue

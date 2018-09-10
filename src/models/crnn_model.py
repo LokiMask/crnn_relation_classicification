@@ -22,7 +22,7 @@ def cnn_forward(name, sent_pos, lexical, num_filters1, num_filters2):
 
     # convolutional layer
     pool_outputs = []
-    for filter_size in [3,4,5]:
+    for filter_size in [2,3,4,5]:
       with tf.variable_scope('conv-%s' % filter_size):
         conv_weight = tf.get_variable('W1',
                             [filter_size, input_dim, 1, num_filters1],
@@ -41,12 +41,12 @@ def cnn_forward(name, sent_pos, lexical, num_filters1, num_filters2):
         lstm_bw_cell = tf.contrib.rnn.BasicLSTMCell(num_units= num_filters2, state_is_tuple=True)
         outputs, state_fw, state_bw = tf.contrib.rnn.static_bidirectional_rnn(cell_fw=lstm_fw_cell, cell_bw=lstm_bw_cell,inputs=inputs,dtype=tf.float32)
         pool_outputs.append(outputs[-1])
-    pools = tf.reshape(tf.concat(pool_outputs, 1), [-1, 3 * 2 *num_filters2])
+    pools = tf.reshape(tf.concat(pool_outputs, 1), [-1, 4 * 2 *num_filters2])
 
     # feature
     feature = pools
-    if lexical is not None:
-      feature = tf.concat([lexical, feature], axis=1)
+    #if lexical is not None:
+    #  feature = tf.concat([lexical, feature], axis=1)
     return feature
 
 
@@ -77,9 +77,9 @@ class CRNNModel(BaseModel):
     sentence = tf.nn.embedding_lookup(word_embed, sentence)   # batch_size, max_len, word_dim
     pos1 = tf.nn.embedding_lookup(pos1_embed, pos1)       # batch_size, max_len, pos_dim
     pos2 = tf.nn.embedding_lookup(pos2_embed, pos2)       # batch_size, max_len, pos_dim
-
+    sent_pos = sentence
     # cnn model
-    sent_pos = tf.concat([sentence, pos1, pos2], axis=2)
+    #sent_pos = tf.concat([sentence, pos1, pos2], axis=2)
     if is_train:
       sent_pos = tf.nn.dropout(sent_pos, keep_prob)
 
@@ -123,7 +123,6 @@ class CRNNModel(BaseModel):
 
 
 def build_train_valid_model(word_embed, train_data, test_data):
-  '''Relation Classification via Convolutional Deep Neural Network'''
   with tf.name_scope("Train"):
     with tf.variable_scope('CRNNModel', reuse=None):
       m_train = CRNNModel( word_embed, train_data, FLAGS.word_dim,
